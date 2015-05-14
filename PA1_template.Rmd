@@ -1,25 +1,73 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "PA1_template"
+author: "JoAnna Tingey"
+date: "Wednesday, May 13, 2015"
+output: html_document
 ---
-
-
 ## Loading and preprocessing the data
+```{r loadingdata}
+    fileUrl="http://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"
+    if(!file.exists("./repdata_data_activity.zip")) {download.file(fileUrl,destfile="./repdata_data_activity.zip",mode="wb")}
+    if(!file.exists("./PA1Temp/activity.csv"))  {unzip(zipfile="./repdata_data_activity.zip",exdir="./PA1Temp")}
+    repdata<-read.csv("./PA1Temp/activity.csv",header=TRUE,sep=",")
+```
 
 
+```{r ProcessData}
+repdata$date<-as.Date(repdata$date,"%Y-%m-%d")
+stepsbyday<-aggregate(steps~date, data=repdata,FUN="sum")
+meanstepsbyinterval<-aggregate(steps~interval,data=repdata,FUN="mean")
+```
 
 ## What is mean total number of steps taken per day?
 
+```{r, TotalSteps}
+hist(stepsbyday$steps,main = paste("Histogram of" , "Steps By Day"), xlab="Total Steps")
+MeanSteps<-mean(stepsbyday$steps)
+MedianSteps<-median(stepsbyday$steps)
 
+```
+The Total number of Steps per day has a Mean of `r MeanSteps` and Median of `r MedianSteps`.
 
 ## What is the average daily activity pattern?
-
-
+```{r averagedaily}
+plot(x=meanstepsbyinterval$interval,y=meanstepsbyinterval$steps, type="l", main=paste("Average Steps over time"), xlab="5 minute Interval", ylab="Average Steps")
+max<-max(meanstepsbyinterval$steps)
+minInterval<-subset(meanstepsbyinterval, steps==max)$interval
+maxInterval<- minInterval+5
+```
+The 5 minute interval, on average across all the days in the dataset, contains the max number of steps is `r minInterval` - `r maxInterval`.
 
 ## Imputing missing values
-
-
+```{r imputmissing}
+row.has.na <- apply(repdata, 1, function(x){any(is.na(x))})
+TotalNA<-nrow(repdata[row.has.na,])
+for (i in which(is.na(repdata$steps))){
+    repdata2<-repdata
+    dat<-repdata[i,]
+    mean<-subset(meanstepsbyinterval, interval==dat$interval )$steps
+    repdata2[i,"steps"]<-mean
+}
+stepsbydayAdj<-aggregate(steps~date, data=repdata2,FUN="sum")
+hist(stepsbydayAdj$steps,main = paste("Histogram of" , "Steps By Day"), xlab="Total Steps")
+MeanStepsAdj<-mean(stepsbydayAdj$steps)
+MedianStepsAdj<-median(stepsbydayAdj$steps)
+```
+Total NA's : `r TotalNA`
+The Total number of Steps per day has a Mean of `r MeanStepsAdj` and Median of `r MedianStepsAdj`.
+These are overall lower than the original Mean:`r MeanSteps` and Median:`r MedianSteps`
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+```{r weekdayvsweekend}
+repdata$factor<-ifelse(weekdays(repdata$date)==c("Sunday","Saturday"),"Weekend","Weekday")
+repdata$factor<-as.factor(as.character(repdata$factor))
+substepsbyweekday<-subset(repdata,factor=="Weekday")
+substepsbyweekend<-subset(repdata,factor=="Weekend")
+meanstepsbyintervalday<-aggregate(steps~interval,data=substepsbyweekday,FUN="mean")
+meanstepsbyintervalend<-aggregate(steps~interval,data=substepsbyweekend,FUN="mean")
+par(mfrow=c(1,1),mar=c(4,4,2,1))
+plot(x<-meanstepsbyintervalday$interval,meanstepsbyintervalday[,"steps"],type='l',main="Weekday vs Weekend",ylab="Average Steps",xlab="")
+points(x<-meanstepsbyintervalend$interval,meanstepsbyintervalend[,"steps"],type='l',col="red")
+legend("topright", bty="n",legend = c("Weekday","Weekend"),col=c("black","red"),lwd=1)
+```
